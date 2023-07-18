@@ -92,7 +92,7 @@ func main() {
 	}
 
 	//Открытие выходного файла
-	file, err := os.Create("/home/ivan/Desktop/test/output.txt")
+	file, err := os.Create("output.txt")
 	if err != nil {
 		fmt.Println("Ошибка при создании выходного файла:", err)
 		os.Exit(1)
