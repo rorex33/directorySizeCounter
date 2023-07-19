@@ -8,7 +8,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 
@@ -48,35 +47,28 @@ func parametersCheck(limit float64, sortType string) error {
 }
 
 func dirSizeCalculation(path string) float64 {
-	//Открываем канал sizes для передачи в него размеров вложенных дерикторий
-	sizes := make(chan int64)
+	//Общий размер всех файлов и папок в данной директории
+	var dirsize float64 = 0
 
-	//Данная функция считает размер всех файлов, которые не являются директориями, и отправляет результат канал sizes
-	readSize := func(path string, file os.FileInfo, err error) error {
-		if err != nil || file == nil {
-			return nil
-		}
-		if !file.IsDir() {
-			sizes <- file.Size()
-		}
-		return nil
+	//Читаем директорию
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		fmt.Println("Ошибка при чтении папки:", err)
+		return 0
 	}
 
-	//Каждая горутина считывает размер открытой для неё папки и отправляет результат в канал sizes
-	//После завершения работы всег горутин канал закрывается
-	go func() {
-		filepath.Walk(path, readSize)
-		close(sizes)
-	}()
+	//Проходим по всем файлам директории, если это папка - вызываем эту же фукнцию от данной папки
+	//Иначе просто прибавляем размер файла к dirsize
+	for _, file := range files {
+		if file.IsDir() {
+			dirsize += dirSizeCalculation(fmt.Sprintf("%s/%s", path, file.Name()))
+		}
+		dirsize += float64(file.Size())
 
-	//Суммируем всё, что находится в нашем канале sizes
-	size := int64(0)
-	for s := range sizes {
-		size += s
 	}
 
-	//Возвращаем итоговый размер директории с учётом всех вложенных директорий
-	return float64(size)
+	//Возвращаем размер папки
+	return dirsize
 }
 
 func output(outPutAttay []nameSize, limit float64, rootPath string) error {
@@ -146,6 +138,7 @@ func startCalculation(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err1)
 		//os.Exit(1)
 	} else {
+
 		//Создаём срез структур nameSize, в котором будут храниться имена и размеры папок указанной директории
 		nameSizeArray, err := arrayCreation(ROOT)
 		if err != nil {

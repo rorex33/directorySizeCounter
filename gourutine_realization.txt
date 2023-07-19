@@ -1,18 +1,14 @@
 package main
 
 import (
-	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
-
-	"github.com/gorilla/mux"
+	"time"
 )
 
 type nameSize struct {
@@ -36,15 +32,6 @@ func (a BySizeDESC) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func roundFloat(val float64, precision uint) float64 {
 	ratio := math.Pow(10, float64(precision))
 	return math.Round(val*ratio) / ratio
-}
-
-func parametersCheck(limit float64, sortType string) error {
-	err := errors.New("parametersCheck: wrong limit or sortType")
-	if limit < 0 || sortType != "asc" && sortType != "desc" {
-		return err
-	}
-	return nil
-
 }
 
 func dirSizeCalculation(path string) float64 {
@@ -105,7 +92,7 @@ func arrayCreation(rootPath string) ([]nameSize, error) {
 	//Проходим по всем файлам указанной директории.
 	dirs, err := ioutil.ReadDir(rootPath)
 	if err != nil {
-		fmt.Println("Ошибка при чтении файлов ROOT директории:", err)
+		fmt.Println("Ошибка при чтении файлов ROOT дериктории:", err)
 		return nameSizeArray, err
 	}
 
@@ -132,55 +119,46 @@ func arrayCreation(rootPath string) ([]nameSize, error) {
 	return nameSizeArray, nil
 }
 
-func startCalculation(w http.ResponseWriter, r *http.Request) {
-	//Парсинг параметров
-	vars := mux.Vars(r)
-	//[1:len(...)] - очистка параметров от лишних символов
-	ROOT := vars["ROOT"][1 : len(vars["ROOT"])-1]
-	limit, _ := strconv.ParseFloat(vars["limit"][1:len(vars["limit"])-1], 32)
-	sortType := vars["sort"][1 : len(vars["sort"])-1]
-
-	//Проверка, что лимит и тип сортировки указаны верно
-	err1 := parametersCheck(limit, sortType)
-	if err1 != nil {
-		fmt.Println(err1)
-		//os.Exit(1)
-	} else {
-		//Создаём срез структур nameSize, в котором будут храниться имена и размеры папок указанной директории
-		nameSizeArray, err := arrayCreation(ROOT)
-		if err != nil {
-			//os.Exit(1)
-		}
-
-		//Сортировка полученного массива
-		if sortType == "asc" {
-			sort.Sort(BySizeASC(nameSizeArray))
-		} else {
-			sort.Sort(BySizeDESC(nameSizeArray))
-		}
-
-		//Вывод
-		err = output(nameSizeArray, limit, ROOT)
-		if err != nil {
-			//os.Exit(1)
-		}
-	}
-	w.WriteHeader(http.StatusOK)
-
-}
-
 func main() {
-	//Создаём роутер и добавляем его параметры
-	r := mux.NewRouter()
-	r.Path("/dirsize").
-		Queries("ROOT", "{ROOT}").
-		Queries("limit", "{limit}").
-		Queries("sort", "{sort}").
-		HandlerFunc(startCalculation)
-	//Регистрируем хендлер
-	http.Handle("/", r)
+	timeCountingStart := time.Now()
 
-	//Запускаем сервер
-	log.Println("Listening...")
-	http.ListenAndServe(":3000", nil)
+	//Парсинг флагов
+	ROOT := flag.String("ROOT", "", "Directory path")
+	limit := flag.Float64("limit", -1, "The limit")
+	sortType := flag.String("sort", "asc", "Type of sort")
+	flag.Parse()
+	if *ROOT == "" {
+		fmt.Println("Отсутствует путь к дериктории")
+		os.Exit(1)
+	}
+	if *limit < 0 {
+		fmt.Println("Нежелательное значение лимита")
+		os.Exit(1)
+	}
+	if *sortType != "asc" && *sortType != "desc" {
+		fmt.Println("Неверный тип сортировки (только asc или desc )")
+		os.Exit(1)
+	}
+
+	//Создаём срез структур nameSize, в котором будут храниться имена и размеры папок указанной директории
+	nameSizeArray, err := arrayCreation(*ROOT)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	//Сортировка полученного массива
+	if *sortType == "asc" {
+		sort.Sort(BySizeASC(nameSizeArray))
+	} else {
+		sort.Sort(BySizeDESC(nameSizeArray))
+	}
+
+	//Вывод
+	err = output(nameSizeArray, *limit, *ROOT)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	timeCountingStop := time.Since(timeCountingStart)
+	fmt.Println(timeCountingStop)
 }

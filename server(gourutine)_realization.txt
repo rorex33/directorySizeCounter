@@ -135,7 +135,7 @@ func arrayCreation(rootPath string) ([]nameSize, error) {
 func startCalculation(w http.ResponseWriter, r *http.Request) {
 	//Парсинг параметров
 	vars := mux.Vars(r)
-	//[1:len(...)] - очистка параметров от лишних символов
+	//[1:len(...)] - очищаем параметры от лишних символов
 	ROOT := vars["ROOT"][1 : len(vars["ROOT"])-1]
 	limit, _ := strconv.ParseFloat(vars["limit"][1:len(vars["limit"])-1], 32)
 	sortType := vars["sort"][1 : len(vars["sort"])-1]
@@ -146,6 +146,7 @@ func startCalculation(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err1)
 		//os.Exit(1)
 	} else {
+
 		//Создаём срез структур nameSize, в котором будут храниться имена и размеры папок указанной директории
 		nameSizeArray, err := arrayCreation(ROOT)
 		if err != nil {
