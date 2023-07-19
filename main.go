@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -91,16 +92,17 @@ func dirSizeCalculation(path string, c chan<- float64) {
 	c <- float64(size)
 }
 
-func output(outPutAttay []nameSize, limit float64, rootPath string) error {
+func output(outPutArray []nameSize, limit float64, rootPath string) error {
 	//Создание выходного файла
 	file, err := os.Create("output.txt")
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-
+	x, _ := json.Marshal(outPutArray)
+	fmt.Println(string(x))
 	//Вывод данных в выходной файл и в терминал согласно условию задачи
-	for _, nameSizeValue := range outPutAttay {
+	for _, nameSizeValue := range outPutArray {
 		if nameSizeValue.size > limit {
 			file.WriteString(fmt.Sprintf("%s/%s	%s", rootPath, nameSizeValue.name, fmt.Sprintln(nameSizeValue.size)))
 		}
