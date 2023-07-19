@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -38,16 +39,27 @@ func roundFloat(val float64, precision uint) float64 {
 	return math.Round(val*ratio) / ratio
 }
 
-func parametersCheck(limit float64, sortType string) error {
-	err := errors.New("parametersCheck: wrong limit or sortType")
-	if limit < 0 || sortType != "asc" && sortType != "desc" {
+func validation(rootPath string, limit float64, sortType string) error {
+	if _, err := os.Stat(rootPath); os.IsNotExist(err) {
+		err := errors.New("validation fail: wrong root path")
 		return err
 	}
+
+	if limit < 0 {
+		err := errors.New("validation fail: wrong limit")
+		return err
+	}
+
+	if sortType != "asc" && sortType != "desc" {
+		err := errors.New("validation fail: wrong sort")
+		return err
+	}
+
 	return nil
 
 }
 
-func dirSizeCalculation(path string) float64 {
+func dirSizeCalculation(path string, c chan<- float64) {
 	//Открываем канал sizes для передачи в него размеров вложенных дерикторий
 	sizes := make(chan int64)
 
@@ -76,14 +88,13 @@ func dirSizeCalculation(path string) float64 {
 	}
 
 	//Возвращаем итоговый размер директории с учётом всех вложенных директорий
-	return float64(size)
+	c <- float64(size)
 }
 
 func output(outPutAttay []nameSize, limit float64, rootPath string) error {
 	//Создание выходного файла
-	file, err := os.Create("/home/ivan/Desktop/test/output.txt")
+	file, err := os.Create("output.txt")
 	if err != nil {
-		fmt.Println("Ошибка при создании выходного файла:", err)
 		return err
 	}
 	defer file.Close()
@@ -115,10 +126,13 @@ func arrayCreation(rootPath string) ([]nameSize, error) {
 			continue
 		}
 		//Вычисляем размер папки
-		dirSize := dirSizeCalculation(fmt.Sprintf("%s/%s", rootPath, dir.Name()))
-
+		c := make(chan float64)
+		defer close(c)
+		go dirSizeCalculation(fmt.Sprintf("%s/%s", rootPath, dir.Name()), c)
+		dirSize := <-c
+		dirSizeMb := dirSize / (1024 * 1024)
 		//Создаём переменную типа nameSize и добавления в срез nameSizeArray (размер папки переводится в мегабайты!)
-		nameSizeValue := nameSize{dir.Name(), dirSize / 1024 / 1024}
+		nameSizeValue := nameSize{dir.Name(), dirSizeMb}
 		nameSizeArray = append(nameSizeArray, nameSizeValue)
 
 		//Обработка возможной ошибки при вовзращении в родительскую директорию
@@ -134,22 +148,20 @@ func arrayCreation(rootPath string) ([]nameSize, error) {
 
 func startCalculation(w http.ResponseWriter, r *http.Request) {
 	//Парсинг параметров
-	vars := mux.Vars(r)
-	//[1:len(...)] - очистка параметров от лишних символов
-	ROOT := vars["ROOT"][1 : len(vars["ROOT"])-1]
-	limit, _ := strconv.ParseFloat(vars["limit"][1:len(vars["limit"])-1], 32)
-	sortType := vars["sort"][1 : len(vars["sort"])-1]
+	queries := r.URL.Query()
+	ROOT := queries["ROOT"][0]
+	limit, _ := strconv.ParseFloat(queries["limit"][0], 32)
+	sortType := strings.ToLower(queries["sort"][0])
 
 	//Проверка, что лимит и тип сортировки указаны верно
-	err1 := parametersCheck(limit, sortType)
-	if err1 != nil {
-		fmt.Println(err1)
-		//os.Exit(1)
+	err := validation(ROOT, limit, sortType)
+	if err != nil {
+		fmt.Println(err)
 	} else {
+
 		//Создаём срез структур nameSize, в котором будут храниться имена и размеры папок указанной директории
 		nameSizeArray, err := arrayCreation(ROOT)
 		if err != nil {
-			//os.Exit(1)
 		}
 
 		//Сортировка полученного массива
@@ -162,7 +174,7 @@ func startCalculation(w http.ResponseWriter, r *http.Request) {
 		//Вывод
 		err = output(nameSizeArray, limit, ROOT)
 		if err != nil {
-			//os.Exit(1)
+			fmt.Println("Ошибка при создании выходного файла:", err)
 		}
 	}
 	w.WriteHeader(http.StatusOK)
