@@ -77,9 +77,9 @@ func output(outPutArray []dirsizecalc.NameSize, rootPath string, limit float64, 
 	// fmt.Println(string(x))
 	//Вывод данных в выходной файл (если размер больше лимита) и в терминал
 	for _, nameSizeValue := range outPutArray {
-		toWriteValue := fmt.Sprintf("%s/%s	%s", rootPath, nameSizeValue.Name, fmt.Sprintln(nameSizeValue.Size))
+		toWriteValue := fmt.Sprintf("%s/%s	%s", rootPath, nameSizeValue.Name, fmt.Sprint(nameSizeValue.Size))
 		if nameSizeValue.Size > limit {
-			file.WriteString(toWriteValue)
+			file.WriteString(toWriteValue + "\n")
 		}
 		fmt.Println(toWriteValue)
 	}
@@ -101,7 +101,7 @@ func startCalculation(w http.ResponseWriter, r *http.Request) {
 	} else {
 
 		//Создаём срез, в котором будут храниться имена и размеры всех папок, находящихся в указанной директории
-		nameSizeArray, err := dirsizecalc.ArrayCreation(ROOT)
+		nameSizeArray, err := dirsizecalc.GetDirectories(ROOT)
 		if err != nil {
 		}
 

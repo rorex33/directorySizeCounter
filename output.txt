@@ -1,2 +1,3 @@
-/home/ivan/Desktop/dirfortest	1.8178777694702148
-/home/ivan/Desktop/uselessdir	95.57190608978271
+/home/ivan/Desktop/test	0.0038461685180664062
+/home/ivan/Desktop/testdirmod	0.05967903137207031
+/home/ivan/Desktop/githubProjects	0.09541606903076172
